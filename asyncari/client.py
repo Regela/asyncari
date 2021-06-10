@@ -10,8 +10,6 @@ import os
 import json
 import urllib
 import anyio
-from anyio.streams import text as anyio_text_stream
-from anyio.streams import buffered as anyio_buffered_stream
 from asyncswagger11.client import SwaggerClient
 import time
 import inspect
@@ -37,8 +35,6 @@ class _EventHandler(object):
 
     def __init__(self, client, event_type, mangler=None, filter=None):
         self.send_stream, self.receive_stream = anyio.create_memory_object_stream()
-        self.sender_stream = anyio_text_stream.TextSendStream(self.send_stream)
-        self.receiver_stream = anyio_text_stream.TextReceiveStream(self.receive_stream)
         self.client = client
         self.event_type = event_type
         self.mangler = mangler
@@ -50,7 +46,7 @@ class _EventHandler(object):
     async def __call__(self, msg):
         if not self.filter(msg):
             return
-        await self.sender_stream.send(msg)
+        await self.send_stream.send(msg)
 
     def open(self):
         log.debug("ADD %s",self.event_type)
@@ -72,7 +68,7 @@ class _EventHandler(object):
 
     async def __anext__(self):
         while True:
-            res = await self.receiver_stream.receive()
+            res = await self.receive_stream.receive()
             if self.mangler:
                 res = self.mangler(res)
                 if res is None:
